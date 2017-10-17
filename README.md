@@ -1,2 +1,2 @@
 # Statistical-Research
-Various research I performed using R
+Various data analysis I performed using R
