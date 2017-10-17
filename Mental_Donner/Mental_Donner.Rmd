@@ -1,0 +1,294 @@
+---
+title:  STA303 - Assignment 2
+author: |
+  | Last name: Khambaita
+  | First name: Sunil
+  | Student ID: 1000285924
+  | Course section: STA303H1S-L0101
+date: "Feb 19th, 2017"
+output: pdf_document
+fontsize: 10pt
+---
+
+# \textcolor{blue}{Initializing data and libraries once, before starting the questions.}
+
+```{r, echo=TRUE, eval=TRUE, warning=FALSE, cache=TRUE, tidy=TRUE}
+# Loading ggplot2, lsmeans & estimability library
+library(ggplot2)
+library(lsmeans)
+library(estimability)
+
+# Loading in the data 1 dataset
+data1 = read.table("A3Q1data.txt", sep = " ", header = T)
+
+# Loading in the data 2 dataset
+data2 = read.table("donner.txt", sep = " ", header = T)
+
+# Checking type of variables in this data
+str(data1)
+str(data2)
+
+# Converting treatment field in the dataset as a factor variable
+data1$trmt = as.factor(data1$trmt)
+
+# Converting sex field in the dataset as a factor variable
+data2$sex = as.factor(data2$sex)
+
+# Converting survivorship field in the dataset as a factor variable
+data2$survivorship = as.factor(data2$survivorship)
+```
+\newpage
+
+# \textcolor{blue}{ Q1 (a-c) - Data 1: mental treatment}
+
+\textcolor{blue}{(a) Construct the one-way ANOVA analysis for comparing the three treatment means when pretest is ignored. (Show your code, ANOVA output and give your analysis conclusion).}
+
+```{r, echo=TRUE, eval=TRUE, warning=FALSE, cache=TRUE, tidy=TRUE}
+summary(aov(data1$posttest ~ data1$trmt, data = data1))
+```
+
+**Conclusion** : Analyzing the one-way ANOVA output, the p-value we calculated was 0.00432. This is a small number indicating that we can reject the null hypothesis with a high degree of significance indicating that atleast one pair of treatment means are unequal.\newline
+
+\textcolor{blue}{(b) From the one-way ANOVA in (1a), it involves a F-test for equality of means. Specify a model and a null hypothesis for no therapy effect, then give the formula of the F-ratio and its observed value from data. Use R code to find the critical value of this F-test using $\alpha$ = 0.05. Compare the observed F value and the the critical value, what conclusion do you have ? Does it agree with your conclusion based on p-value in (1a) ?}
+
+```{r, echo=TRUE, eval=TRUE, warning=FALSE, cache=TRUE, tidy=TRUE}
+# Applying one-way ANOVA
+summary(aov(data1$pretest ~ data1$trmt, data = data1))
+```
+
+**Solution:** The model is one-way ANOVA, with the following hypothesis:
+
+**The null and alternative hypothesis for the no therapy effect**:
+
+\[
+\begin{cases}
+  H_0 : \alpha_{1} = \alpha_{2} = ... = \alpha_{i} = 0 \\
+  H_a : \exists i \neq j, s.t. \alpha_{i} \neq 0 \\
+\end{cases}
+\]  
+
+Observed F-ratio: $F^* = \frac{SS_T/(r-1)}{SS_E/(n-r)}$ where: 
+
+Sum of Squares Between Groups: $SS_T = \sum\limits_{\substack{i=1}}^r n_i(\overline{Y_{i.}} - \overline{Y})^2$
+
+Sum of Squares Error: $SS_E = \sum\limits_{\substack{i=1}}^r\sum\limits_{\substack{j=1}}^{n_i} (Y_{ij} - \overline{Y_i})^2 = \sum\limits_{\substack{i=1}}^r (n_i -1)s_i^2$
+
+Number of Treatments: $r = 3$
+
+Number of Observations: $n = 30$
+
+Observed F-value using R: 
+```{r, echo=TRUE, eval=TRUE, warning=FALSE, cache=TRUE, tidy=TRUE}
+# Calculating total means
+total_mean = mean(data1$posttest)
+
+#Calculating the treatment means
+trmt_means = with(data1, tapply(posttest,trmt,mean))
+
+#Calculating the treatment sizes
+trmt_sizes <- with(data1, tapply(posttest,trmt,length))
+
+#Treatments we achieve are all of size 10
+trmt_sizes
+
+sum_of_squares_between_groups = sum(10 * (trmt_means - total_mean)^2)
+
+#Calculating the treatment sd
+trmt_sds = with(data1, tapply(posttest,trmt,sd))
+sum_of_squares_error = sum((10 - 1) * trmt_sds^2)
+(sum_of_squares_between_groups/2)
+(sum_of_squares_error / 27)
+observed_F_statistic = (sum_of_squares_between_groups/2)/ (sum_of_squares_error / 27)
+observed_F_statistic
+```
+
+With the null hypothesis, the distribution of this observed F statistic is $F^*$ ~ $F_{r-1, n-r}$. In our case it is $F^*$ ~ $F_{2, 27}$
+
+For a significance level of 0.05, our critical value is the $95^{th}$ percentile of that distribution: 
+```{r, echo=TRUE, eval=TRUE, warning=FALSE, cache=TRUE, tidy=TRUE}
+qf(.95, df1=2, df2=27)  
+```
+
+We note that the critical values is significantly less than our observed F statistic, which shows high statistic significance and we can conclude to reject the null hypothesis stating that there was no therapy effect and conclude that there indeed was a therapy effect.
+
+This is in accordance with our results in question 1 (a). Both tests are equivalent, in question 1a we rejected the null hypothesis and took on the alternative, stating that atleast one pair of treatment means are unequal which would mean that there was a therapy effect, which is what we concluded in this question. Adding on to this, the test in question 1 a was highly statistically signifant, and in this question, as mentioned before, our critical value was significantly smaller than our observed F statistic. \newline
+
+\textcolor{blue}{(c) What is the homogeneity of slopes assumption of ANCOVA ? Why is it important ?}
+
+**Solution**: Whenever an ANCOVA is performed we look at the overall relationship between the outcome (dependent variable) and the covariate: we fit a regression line to the entire data set, ignoring to which group a person belongs. In fitting this overall model we, therefore, assume that this overall relationship is true for all groups of participants. The assumption that regression lines should be parallel among groups is what we call the homogeneity of slopes assumption for ANCOVA.
+
+This assumption is required due to the fact it is important that treatments do not affect the value of the covariates, otherwise if relationships between the outcome (dependent variable) and covariates were to differ across the groups, then the overall regression model would be inaccurate (since it does not represent all of the groups).
+
+\newpage
+# \textcolor{blue}{ Q2 (a-d) - Data 1: mental treatment}
+
+\textcolor{blue}{(a) Plot posttest versus pretest with a different symbol or color for each treatment. From this plot, does the assumption of homogenous slope look reasonable ?}
+
+```{r, echo=TRUE, eval=TRUE, warning=FALSE, cache=TRUE, tidy=TRUE}
+# Setting up an empty plot (posttest versus pretest)
+plot_setup = ggplot(data1, aes(x = pretest, y = posttest, group = trmt, colour = trmt, linetype = trmt))
+# Plotting the points
+plot_points = geom_point()
+
+# Plotting the regression lines
+plot_lm = geom_smooth(method = "lm", size = 0.7, se = FALSE, fullrange = TRUE)
+
+# Entering a title
+plot_title = ggtitle("posttest vs pretest") 
+
+# Positioning the title
+plot_theme = theme(plot.title = element_text(hjust = 0.5))
+
+# Putting everything together
+plot_setup + plot_points + plot_lm + plot_title + plot_theme
+```
+
+**Solution**: The three regression lines are for the three treatments given. Although you could argue that the regression line of treatment 2 and treatment 3 are not exactly parallel, their slopes (of all treatments i.e. treatment 1, 2 and 3) are quite similar, indicating that the homogeneity of slopes assumption is met (looks reasonable). \newline
+
+\textcolor{blue}{(b) Specify a model that can be used to access the homogenous regression slope assumption. Evaluate the assumption for this data. Is the homogenous slopes assumption met ? }
+
+```{r, echo=TRUE, eval=TRUE, warning=FALSE, cache=TRUE, tidy=TRUE}
+# Homogeneity assumption test
+anova(lm(data1$posttest ~ data1$pretest * data1$trmt, data = data1))
+```
+
+**Solution**: We will need to use the ANCOVA model in order to access the homogenous regression slop assumption. The assumptions are (1) linearity of regression (posttest and pretest) must be linear. (2) Homogeneity of variance: equal variances for different treatment classes and observations. (3) Independence of error terms. (4) Normality of error terms. (5) Homogeneity of regression slopes. (which is what we will test.)
+
+ANCOVA model is: $$posttest_{ik} = \mu + \alpha_i + \sum\limits_{\substack{j=1}}^{p=1}\beta_j(pretest_{ijk}) + \epsilon_{ik}$$
+
+After running this model, we received a p-value of 0.9757 which is greater than 0.05, therefore we do not have enough evidence to reject the null hypothesis which states the same slope assumption. We conclude in saying that it's okay to assume that the assumption is met. \newline
+
+\textcolor{blue}{(c) Fit an ANCOVA model to this data. Report the F-test for a treatment effect, after controlling for the effect of the pretest measurement. (Also show your R code and ANOVA output)}
+
+
+```{r, echo=TRUE, eval=TRUE, warning=FALSE, cache=TRUE, tidy=TRUE}
+# Applying ANOVA on ANCOVA model
+anova(lm(data1$posttest ~ data1$pretest + data1$trmt), data = data1)
+```
+
+**Conclusion**: ANCOVA model is: $$posttest_{ik} = \mu + \alpha_i + \sum\limits_{\substack{j=1}}^{p=1}\beta_j(pretest_{ijk}) + \epsilon_{ik}$$
+
+Performing ANOVA on this model, the effect for the pretest measurement is accounted for.
+
+Observing the output, we achieved a value of 1.399e-13 ($1.399 \times 10^{-13}$) for pretest and a value of 3.360e-11 ($3.360 \times 10^{-11}$) for a treatment effect, after controlling for the effect of the pretest measurement. Both of these values are very small and are significant. We can conclude that the F-test shows pretest being a significant predictor of posttest score and that treatment treatment has a significant effect on posttest score. \newline
+    
+\textcolor{blue}{(d) Find unadjusted and adjusted post-test score for 3 treatments.}
+
+```{r, echo=TRUE, eval=TRUE, warning=FALSE, cache=TRUE, tidy=TRUE}
+# Finding the unadjusted post-test score for 3 treatments
+aggregate(data1$posttest, list(data1$trmt), mean)
+
+# Finding the adjusted post-test score for 3 treatments
+lsmeans(lm(data1$posttest ~ data1$pretest + data1$trmt), "data1$trmt")
+```
+
+\newpage
+# \textcolor{blue}{ Q3 (a-b) - Data 1: mental treatment}
+
+\textcolor{blue}{(a) If we define Y=posttest-protest as our new dependent variable, fit the oneway ANOVA model to it. How significant of the treatment effect ?}
+
+```{r, echo=TRUE, eval=TRUE, warning=FALSE, cache=TRUE, tidy=TRUE}
+# Definining Y
+data1$Y = data1$posttest - data1$pretest
+
+# Fitting one-way ANOVA
+anova(lm(data1$Y ~ data1$trmt, data = data1))
+```
+**Solution:** The value we received is 4.921e-11. This is a very small number indicating that the treatment effect was highly significant. \newline
+
+\textcolor{blue}{(b)  Compare the one-way ANOVA with the ANCOVA model in Q-2c, which
+model do you prefer and why ?}
+
+**Solution**: Comparing ANOVA with ANCOVA, we see that ANOVA measures whether the mean change in the outcome from pre to post differs in the three groups. ANCOVA measures whether the post-test means, adjusted for pre-test scores, differs between groups.  
+
+We would prefer to use the ANCOVA model. ANCOVA helps to account for differences created by a covariate, so if the differences between a certain measure don't aid your effect size, but they do account for some of the variation in the model, an ANCOVA would basically take those out of the SSE, reducing the overall noise of your model.
+
+\newpage
+
+# \textcolor{blue}{ Q4 (a-f) - Data 2: donner party}
+
+\textcolor{blue}{(a) Fit a logistic regression model to the data with covariates sex and age. Provide the summary output. Give the formula for the estimated curve. What is the fitted male model ? What is the fitted female model ?}
+
+```{r, echo=TRUE, eval=TRUE, warning=FALSE, cache=TRUE, tidy=TRUE}
+# Fitting a logistic regression model
+summary(glm(formula = data2$survivorship ~ data2$age + data2$sex, family = "binomial", data = data2))
+```
+**Solution:** From summary output, we have $b_0 = 3.23041$, $b_{1} = -0.07820$, $b_{2} = -1.59729$.
+
+The estimated curve is:  $(\hat{\pi} = \frac{e^\eta}{1 + e^\eta})$
+
+Where: $\eta = 3.23041 -0.07820 age - 1.59729 I_{male}$
+
+Fitted male model: \[ logit(\hat \pi) = 3.23041 - 0.07820 \text{age} - 1.59729 = 1.63312 - 0.07820 \text{age} \]
+
+Fitted female model: \[ logit (\hat \pi) = 3.23041 - 0.07820 \text{age}\]
+
+\newpage
+
+\textcolor{blue}{(b) Interpret the intercept and all the slopes from the full fitted model.}
+
+**Solution:**  
+$b_{0} = 3.23041$: In our case, $b_0$ is the the log-Odds of survival for females. We see that females have a log-Odds survival of 3.23041.
+
+$b_{1} = -0.07820$: In logistic regression, $b_1$ is the increase in the log-Odds
+of survival, for a unit change in age, keeping other variables constant. In our case, the log odds of survival decreases by 0.07820 for each unit increase in age. 
+
+$b_{2} = -1.59729$: In logistic regression, $b_2$ is the increase in the log-Odds of survival for males compared to females, keeping age constant. In our case, being male compared to female, decreases the log odds of survival by 1.59729. \newline
+
+\textcolor{blue}{(c) Plot the logistic regression curve versus age that has both male and female curves on it. Look at this plot, what conclusion do you have comparing the estimated survival probability for a male and a female given age =30 ?}
+
+```{r, echo=TRUE, eval=TRUE, warning=FALSE, cache=TRUE, tidy=TRUE}
+
+# q4 = glm(formula = survivorship ~ age, family = binomial(link="logit"), data = data2)
+# plot(data2$age, data2$survivorship)
+# xv = seq(min(data2$age), max(data2$age), 0.01)
+# yv <- predict(q4, list(age=xv), type = "response")
+# lines(xv, yv)
+
+# xweight <- seq(0, 6, 0.01)
+# yweight <- predict(q4, list(age = xweight),type="response")
+# plot(data2$, mtcars$vs, pch = 16, xlab = "WEIGHT (g)", ylab = "VS")
+
+# Setting up an empty plot (survivorship versus age)
+plot_setup = ggplot(data2, aes(x = age, y = survivorship, group = sex, colour = sex, linetype = sex))
+
+# Plotting the points
+plot_points = geom_point()
+
+# Plotting the logistic regression curve
+plot_lm = stat_smooth(method="glm", family=binomial, formula=y~x, alpha=0.2, size=2, aes(fill=sex))
+
+# Entering a title
+plot_title = ggtitle("survivorship vs age")
+
+# Positioning the title
+plot_theme = theme(plot.title = element_text(hjust = 0.5))
+
+# Putting everything together
+plot_setup + plot_points + plot_lm + plot_title + plot_theme
+```
+**Comments**: Looking at the graph we notice that at around age 30 the estimated survival probability is higher for females compared to males. \newline
+
+\textcolor{blue}{(d) What are the estimated probabilities of survival for men and women of ages 25 and 50 ?}
+
+**Solution:** Estimated probabilities,
+
+$$ Men: \hat{\pi} = \frac{e^{1.63312 - 0.07820 \text{age}}}{1 + e^{1.63312 - 0.07820 \text{age}}}$$
+
+$$ Women: \hat{\pi} = \frac{e^{3.23041 - 0.07820 \text{age}}}{1 + e^{3.23041 - 0.07820 \text{age}}}$$
+
+
+Plugging in for 25 and 50 for Men and Women we get the following survival probabilities:
+
+- Age 25 (Men) = 0.42021
+- Age 50 (Men) = 0.09306
+- Age 25 (Female) = 0.78167
+- Age 50 (Female) = 0.33635 \newline
+
+\textcolor{blue}{(e) What is the age at which the estimated probability of survival is 50 percent for women and for men ?}
+
+**Solution**: For females, the age of 50% survival is 41.31 years; for males it is 20.88 years. \newpage
+
+\textcolor{blue}{(f) Why should one be reluctant to draw conclusions about the ratio of male and female odds of survival for the Donner Party members over 50 ?}
+
+**Solution**: Looking at the data, we notice that there were no females over 50. So if we were to do any comparisons for Donner Party members over 50, it must be with the *assumption* that the model would still hold/be valid and we can not really verify this with the given data. Which is the main reason why we would be reluctant to draw any conclusions about members over 50.
